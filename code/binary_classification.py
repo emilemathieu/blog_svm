@@ -25,7 +25,7 @@ class SVM(object):
     def predict(self, X):
         kernel_support_vectors = self._compute_kernel_support_vectors(X)
         prod = np.multiply(kernel_support_vectors, self.dual_coef_)
-        prediction = self.intercept_ + np.sum(prod,1)
+        prediction = self.intercept_ + np.sum(prod, 1)
         return np.sign(prediction)
 
     def score(self, X, y):
@@ -40,13 +40,6 @@ class SVM(object):
             row[j] = self.kernel(x_i, x_j)
         return row
    
-    # def _compute_kernel_matrix_diag(self, X):
-    #     n_samples, n_features = X.shape
-    #     diag = np.zeros(n_samples)
-    #     for j,x_j in enumerate(X):
-    #         diag[j] = self.kernel(x_j, x_j)
-    #     return diag
-        
     def _compute_intercept(self, alpha, yg):
         indices = (alpha < self.C) * (alpha > 0)
         return np.mean(yg[indices])
@@ -54,59 +47,53 @@ class SVM(object):
     def _compute_weights(self, X, y):
         iteration = 0
         n_samples = X.shape[0]
-        alpha = np.zeros(n_samples) #feasible solution
-        g = np.ones(n_samples) #gradient initialization
-        #diag = self._compute_kernel_matrix_diag(X)
-        while True:
+        alpha = np.zeros(n_samples) # Initialise coefficients to 0  w
+        g = np.ones(n_samples) # Initialise gradients to 1
 
+        while True:
             yg = g * y
-            # Working Set Selection
-            indices_y_pos = (y == 1)
-            indices_y_neg = (np.ones(n_samples) - indices_y_pos).astype(bool)#(y == -1)
-            indices_alpha_big = (alpha >= self.C)
-            indices_alpha_neg = (alpha <= 0)
+
+            # Working Set Selection via maximum violating constraints
+            indices_y_positive = (y == 1)
+            indices_y_negative = (np.ones(n_samples) - indices_y_positive).astype(bool)#(y == -1)
+            indices_alpha_upper = (alpha >= self.C)
+            indices_alpha_lower = (alpha <= 0)
             
-            indices_violate_Bi_1 = indices_y_pos * indices_alpha_big
-            indices_violate_Bi_2 = indices_y_neg * indices_alpha_neg
-            indices_violate_Bi = indices_violate_Bi_1 + indices_violate_Bi_2
+            indices_violate_Bi = (indices_y_positive * indices_alpha_upper) + (indices_y_negative * indices_alpha_lower)
             yg_i = yg.copy()
-            yg_i[indices_violate_Bi] = float('-inf') #do net select violating indices
-            
-            indices_violate_Ai_1 = indices_y_pos * indices_alpha_neg
-            indices_violate_Ai_2 = indices_y_neg * indices_alpha_big
-            indices_violate_Ai = indices_violate_Ai_1 + indices_violate_Ai_2
+            yg_i[indices_violate_Bi] = float('-inf') #cannot select violating indices
+            indices_violate_Ai = (indices_y_positive * indices_alpha_lower) + (indices_y_negative * indices_alpha_upper)
             yg_j = yg.copy()
-            yg_j[indices_violate_Ai] = float('+inf') #do net select violating indices
+            yg_j[indices_violate_Ai] = float('+inf') #cannot select violating indices
             
             i = np.argmax(yg_i)
-            Ki = self._compute_kernel_matrix_row(X, i)
-            Kii = Ki[i]
-            #indices_violate_criterion = yg_i[i] - yg <= 0
-            #vec_j = (yg_i[i] - yg)**2 / (Kii - diag - 2*Ki)
-            #vec_j[indices_violate_Ai_1+indices_violate_Ai_2+indices_violate_criterion] = float('-inf')
-            
             j = np.argmin(yg_j)
-            #j = np.argmax(vec_j)
-            Kj = self._compute_kernel_matrix_row(X, j)
 
-            # Stop criterion: stationary point or max iterations
+            # Stopping criterion: stationary point or maximum iterations
             stop_criterion = yg_i[i] - yg_j[j] < self.tol
             if stop_criterion or (iteration >= self.max_iter and self.max_iter != -1):
                 break
             
-            #compute lambda
-            min_1 = (y[i]==1)*self.C -y[i] * alpha[i]
-            min_2 = y[j] * alpha[j] + (y[j]==-1)*self.C
-            min_3 = (yg_i[i] - yg_j[j])/(Kii + Kj[j] - 2*Ki[j])
-            lambda_param = np.min([min_1, min_2, min_3])
+            # Compute lambda via Newton Method and constraints projection
+            lambda_max_1 = (y[i] == 1) * self.C - y[i] * alpha[i]
+            lambda_max_2 = y[j] * alpha[j] + (y[j] == -1) * self.C
+            lambda_max = np.min([lambda_max_1, lambda_max_2])
+
+            Ki = self._compute_kernel_matrix_row(X, i)
+            Kj = self._compute_kernel_matrix_row(X, j)
+            lambda_plus = (yg_i[i] - yg_j[j]) / (Ki[i] + Kj[j] - 2 * Ki[j])
+            lambda_param = np.max([0, np.min([lambda_max, lambda_plus])])
             
-            #update gradient
+            # Update gradient
             g = g + lambda_param * y * (Kj - Ki)
+
+            # Direction search update
             alpha[i] = alpha[i] + y[i] * lambda_param
             alpha[j] = alpha[j] - y[j] * lambda_param
             
             iteration += 1
-        # compute intercept
+
+        # Compute intercept
         intercept = self._compute_intercept(alpha, yg)
         
         print('{} iterations for gradient ascent'.format(iteration))

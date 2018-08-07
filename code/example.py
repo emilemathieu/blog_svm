@@ -10,14 +10,18 @@ import itertools
 import argh
 
 
-def example(num_samples=100, num_features=2, grid_size=20, filename="svm.pdf"):
+def example(num_samples=100, num_features=2, grid_size=200, filename="svm.pdf"):
     samples = np.array(np.random.normal(size=num_samples * num_features)
                         .reshape(num_samples, num_features))
     labels = 2 * (samples.sum(axis=1) > 0) - 1.0
+
     clf = SVM(Kernel.rbf(0.1), 0.1)
     clf.fit(samples, labels)
+    plot(clf, samples, labels, grid_size, "svm1.pdf")
 
-    plot(clf, samples, labels, grid_size, filename)
+    clf = SVM(Kernel.linear(), 0.1)
+    clf.fit(samples, labels)
+    plot(clf, samples, labels, grid_size, "svm2.pdf")
 
 
 def plot(predictor, X, y, grid_size, filename):
@@ -34,7 +38,7 @@ def plot(predictor, X, y, grid_size, filename):
         result.append(predictor.predict(point))
 
     Z = np.array(result).reshape(xx.shape)
-
+    plt.clf()
     plt.contourf(xx, yy, Z,
                  cmap=cm.Paired,
                  levels=[-0.001, 0.001],
