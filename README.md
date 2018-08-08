@@ -9,3 +9,9 @@ cd blog_svm
 cd code
 python example.py
 ```
+
+## Organisation
+- references: referred papers
+- code > kernel: several canonical kernels
+- code > binary_classification: soft-margin kernel SVM implemented with SMO
+- code > example.py: small 2d binary classification task example
