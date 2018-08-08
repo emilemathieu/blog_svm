@@ -10,7 +10,7 @@ cd code
 python example.py
 ```
 
-## Organisation
+## Repository organisation
 - references: referred papers
 - code > kernel: several canonical kernels
 - code > binary_classification: soft-margin kernel SVM implemented with SMO
